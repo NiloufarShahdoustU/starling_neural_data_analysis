@@ -1,11 +1,4 @@
-% outcome based spectogram
-
-% trialStart: 1 , by fixation point: 500ms
-% cardShow: 2 , 1000ms
-% instructionMessage: 3 , no delay
-% flipSpace: 4 , no delay <3000ms
-% choiceAndFeedback: 5 , feedback is shown for 2000ms
-% totalReward: 6 , shown for 1000ms
+% outcome based spectogram saved!!
 
 clc;
 clear;
@@ -19,6 +12,9 @@ cueEnd = 800;
 flipStart = 500;
 flipEnd = 500;
 
+choiceStart = 1000;
+choiceEnd = 1000;
+
 choiceFeedbackStart = 1000;
 choiceFeedbackEnd = 1500;
 
@@ -29,7 +25,11 @@ cardShowWindow = 1000;
 choiceFeedbackWindow = 1500;
 
 %% Main folder
-output_folder = fullfile('\\155.100.91.44\d\Code\Nill\Starling_neural_data\starling_7_spectogram_outcome\');
+output_folder = fullfile('\\155.100.91.44\d\Code\Nill\Starling_neural_data\starling_9_spectogram_4_areas_prep\');
+if ~exist(output_folder, 'dir')
+    mkdir(output_folder);
+end
+
 input_folder = fullfile('\\155.100.91.44\d\Data\Nill\starling\raw');
 d = dir(input_folder);
 
@@ -40,15 +40,15 @@ ptIDs = string(subFolders);
 
 %%
 
-% ptNumber = 1;
-%patients
-% for p = ptNumber:ptNumber
-for p = 1:numel(ptIDs)
+ptNumber = 1;
+for p = ptNumber:ptNumber
+% for p = 1:numel(ptIDs)
     ptID = ptIDs{p};
     fprintf('\n--- Processing ptID: %s ---\n', ptID);
     
-    input_folder_pt = fullfile(input_folder, ptID); 
-    output_folder_pt = fullfile(output_folder, ptID); 
+        
+    input_folder_pt = fullfile(input_folder, ptID);  
+
 
    % reading neural data
     if any(strcmp(ptID, differentPatients ))
@@ -171,117 +171,27 @@ for p = 1:numel(ptIDs)
         baseLineS = baseLineS_all{ch};
         % baseline normalize:
         Sbl_all{ch} = Spec ./ repmat(mean(mean(baseLineS(:,100:end-150), 2), 3), 1, size(S, 2), size(S, 3));
-
-        % frequency noramlize:
-        % Sbl_all{ch} = S ./ repmat(period', 1, size(S, 2), size(S, 3));
     end
     
-    
-    winTrials = find(bhvData.outcome == "win");
-    loseTrials = find(bhvData.outcome == "lose");
+
+%%
+
+    InterestTrials = find(bhvData.choice == "arrowup" | bhvData.choice == "arrowdown");
 
 
-    
-    condNames = {'win', 'lose'};
-    condTrials = {winTrials, loseTrials};
+    dataToSave = nan(nChans,length(period), 2*choiceStart);
+    freqToSave = freq_all{1,1};
 
-    % % Count number of win/lose trials
-    % nWin = numel(winTrials);
-    % nLose = numel(loseTrials);
-    % nTotal = nWin + nLose;
-    % 
-    % % Normalization factors (so that both are scaled to same total)
-    % winNormFactor = nWin / nTotal;
-    % loseNormFactor = nLose / nTotal;
-
-    
-    % visualization
-    fig_folder = fullfile(output_folder_pt, 'spectrogram');
-    if ~exist(fig_folder, 'dir')
-        mkdir(fig_folder);
-    end
-    
-    nRows = 10;
-    nCols = ceil(nChans / nRows);
-    
-    for c = 1:numel(condNames)
-        trialsIdx = condTrials{c};
-    
-        % colorbar scale across all channels
-        allVals = [];
-        for ch = 1:nChans
-            tmp = mean(Sbl_all{ch}(:, choiceFeedbackWindow-choiceFeedbackStart:choiceFeedbackWindow+choiceFeedbackEnd-1, trialsIdx), 3);
-            allVals = [allVals; tmp(:)];
-        end
-        climVals = [prctile(allVals, 5), prctile(allVals, 95)];
-    
-        
-        f = figure('Visible', 'off', 'Position', [100 100 1000 1000]);
-        sgtitle(sprintf('%s | %s', ptID, condNames{c}), 'FontWeight', 'bold');
-    
-        for ch = 1:nChans
-            subplot(nRows, nCols, ch);
-    
-            dataToPlot = mean(Sbl_all{ch}(:, choiceFeedbackWindow-choiceFeedbackStart:choiceFeedbackWindow+choiceFeedbackEnd-1, trialsIdx), 3);
-
-            % % Normalize by condition trial count proportion
-            % if strcmp(condNames{c}, 'win')
-            %     dataToPlot = dataToPlot ./ winNormFactor;
-            % else
-            %     dataToPlot = dataToPlot ./ loseNormFactor;
-            % end
-
-
-            imagesc(1:size(dataToPlot,2), freq_all{ch}, dataToPlot);
-            set(gca, 'YDir', 'normal', 'YScale', 'log');
-
-            ylim([fWin(1) fWin(2)]);
-            % ----------------------------------------------------------
-            
-            axis square tight;
-            caxis(climVals); % same colorbar scale for all
-            set(gca, 'FontSize', 2);
-    
-            %  red vertical line at t = 200 ms where back of the cards appear
-            hold on;
-            xline(1000, 'r', 'LineWidth', 0.5);
-            hold off;
-
-
-            title(sprintf('%s', anatomicalLocs{selectedChans(ch)}), ...
-      'FontSize', 3, 'FontWeight', 'normal', 'Interpreter', 'none');
-        end
-    
-        %  one shared horizontal colorbar at the bottom
-        h = colorbar('southoutside');
-        h.Position = [0.25 0.05 0.5 0.02];
-        h.Label.String = 'power (normalized)';
-        h.FontSize = 8;
-        
-        set(f,'Renderer','painters');
-        exportgraphics(f, ...
-            fullfile(fig_folder, sprintf('%s_%s.pdf', ptID, condNames{c})), ...
-            'ContentType','vector', ...
-            'BackgroundColor','none', ...
-            'Resolution',600);
-        close(f);
+    for ch = 1:nChans
+         dataToSave(ch,:,:) = mean(Sbl_all{ch}(:, choiceFeedbackWindow-choiceStart:choiceFeedbackWindow+choiceEnd-1, InterestTrials), 3);
     end
 
+    % ---------------- Save results for this patient ----------------
+    save_path = fullfile(output_folder, ['spectogram_outcome_' ptID '.mat']);
+    save(save_path, 'dataToSave', 'SelectedAnatomicalLoc', 'freqToSave', '-v7.3');
+    fprintf('\nSaved spectrogram data for %s to:\n%s\n', ptID, save_path);
 
 end
 %patients
-
-%% DEEEEEEBBBBUUUUUGGGG
-
-
-% close all
-% dataToPlot = mean(baseLineS_all{1}(:, :, 1), 3);
-% imagesc(dataToPlot);
-% set(gca, 'YDir', 'normal');
-
-% 
-% aaa = 1:size(dataToPlot,2);
-% close all
-% plot(log10(freq_all{1}));
 
 

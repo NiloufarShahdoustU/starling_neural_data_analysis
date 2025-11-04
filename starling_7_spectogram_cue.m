@@ -102,6 +102,13 @@ for p = 1:numel(ptIDs)
         end  
         clear tmp
     end
+
+    % now let's denoise data using Elliot's function:
+    LFPData = remove1stPC(LFPData);
+
+    % now let's denoise data using common average rereference:
+    % LFPData = LFPData - mean(LFPData, 2);
+
    
 
    % reading task data:
@@ -126,7 +133,7 @@ for p = 1:numel(ptIDs)
     %channels
     S_all = cell(1, nChans);
     baseLineS_all = cell(1, nChans);
-    freq_all = cell(1, nChans); % <-- added to store frequency axis
+    freq_all = cell(1, nChans);
 
     for ch = 1:nChans
         fprintf('\nDoing spectral calculations for chan %d of %d', ch, nChans)
@@ -137,17 +144,17 @@ for p = 1:numel(ptIDs)
             LFPseg = LFPData(ch, whichData);
     
             [W, period, scale] = basewaveERP(LFPseg, original_freq, fWin(1), fWin(2), motherWaveletParam, waitBar);
-            S(:, :, tt) = abs(W);
+            S(:, :, tt) = 10*log10(abs(W).^2);
             
             if tt == 1
                 freq_all{ch} = 1 ./ period; 
             end
     
             % baseline (-700 to +300 around trialStart)
-            baseData = (trialStart(tt) - 700):(trialStart(tt) + 300 - 1);
+            baseData = (trialStart(tt) - 750):(trialStart(tt) + 500 - 1);
             LFPbase = LFPData(ch, baseData);
             [bW, bperiod, bscale] = basewaveERP(LFPbase, original_freq, fWin(1), fWin(2), motherWaveletParam, waitBar);
-            baseLineS(:, :, tt) = abs(bW);
+            baseLineS(:, :, tt) = 10*log10(abs(bW).^2);
         end
     
         % save results for channel
@@ -158,10 +165,11 @@ for p = 1:numel(ptIDs)
     % baseline normalize 
     Sbl_all = cell(1, nChans);
     for ch = 1:nChans
-        S = S_all{ch};
+        Spec = S_all{ch};
         baseLineS = baseLineS_all{ch};
         % baseline normalize:
-        Sbl_all{ch} = S ./ repmat(mean(mean(baseLineS, 2), 3), 1, size(S, 2), size(S, 3));
+        Sbl_all{ch} = Spec ./ repmat(mean(mean(baseLineS(:,100:end-150), 2), 3), 1, size(S, 2), size(S, 3));
+
         % frequency noramlize:
         % Sbl_all{ch} = S ./ repmat(period', 1, size(S, 2), size(S, 3));
     end
@@ -193,7 +201,7 @@ for p = 1:numel(ptIDs)
             tmp = mean(Sbl_all{ch}(:, cardShowWindow-cueStart:cardShowWindow+cueEnd-1, trialsIdx), 3);
             allVals = [allVals; tmp(:)];
         end
-        climVals = [prctile(allVals, 5), prctile(allVals, 85)];
+        climVals = [prctile(allVals, 5), prctile(allVals, 95)];
     
         
         f = figure('Visible', 'off', 'Position', [100 100 1000 1000]);
@@ -203,10 +211,9 @@ for p = 1:numel(ptIDs)
             subplot(nRows, nCols, ch);
     
             dataToPlot = mean(Sbl_all{ch}(:, cardShowWindow-cueStart:cardShowWindow+cueEnd-1, trialsIdx), 3);
-            
-            % ---- modified plotting line to use real frequencies ----
-            imagesc(1:size(dataToPlot,2), freq_all{ch}, dataToPlot);
-            set(gca, 'YDir', 'normal');
+            logFreqs = logspace(log10(min(freq_all{ch})), log10(max(freq_all{ch})), length(freq_all{ch}));
+            imagesc(1:size(dataToPlot,2), logFreqs, dataToPlot);
+            set(gca, 'YDir', 'normal', 'YScale', 'log');
             ylim([fWin(1) fWin(2)]);
             % ----------------------------------------------------------
             
@@ -247,6 +254,11 @@ end
 
 
 % close all
-% dataToPlot = mean(S_all{1}(:, :, fixUniTrials), 3);
+% dataToPlot = mean(baseLineS_all{1}(:, :, 1), 3);
 % imagesc(dataToPlot);
 % set(gca, 'YDir', 'normal');
+
+% 
+% aaa = 1:size(dataToPlot,2);
+% close all
+% plot(log10(freq_all{1}));

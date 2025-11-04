@@ -1,4 +1,4 @@
-% outcomebased spectogram that shows choice and feedback
+% outcome based spectogram
 
 % trialStart: 1 , by fixation point: 500ms
 % cardShow: 2 , 1000ms
@@ -19,11 +19,11 @@ cueEnd = 800;
 flipStart = 500;
 flipEnd = 500;
 
-choiceFeedbackStart = 1000;
-choiceFeedbackEnd = 1500;
-
 choiceStart = 1500-1;
 choiceEnd = 1000;
+
+choiceFeedbackStart = 1000;
+choiceFeedbackEnd = 1500;
 
 totalRewardStart = 200;
 totalRewardEnd = 800;
@@ -43,10 +43,9 @@ ptIDs = string(subFolders);
 
 %%
 
-% ptNumber = 1;
-%patients
-% for p = ptNumber:ptNumber
-for p = 1:numel(ptIDs)
+ptNumber = 1;
+for p = ptNumber:ptNumber
+% for p = 1:numel(ptIDs)
     ptID = ptIDs{p};
     fprintf('\n--- Processing ptID: %s ---\n', ptID);
     
@@ -82,7 +81,6 @@ for p = 1:numel(ptIDs)
 
     nChans = length(selectedChans);
     LFPData = [];
-    % notch filter on 60 Hz
     [b1,a1] = iirnotch(60/(original_freq/2), (60/(original_freq/2))/25);
     [b2,a2] = iirnotch(120/(original_freq/2), (120/(original_freq/2))/25);
     
@@ -107,6 +105,13 @@ for p = 1:numel(ptIDs)
         end  
         clear tmp
     end
+
+    % now let's denoise data using Elliot's function:
+    LFPData = remove1stPC(LFPData);
+
+    % now let's denoise data using common average rereference:
+    % LFPData = LFPData - mean(LFPData, 2);
+
    
 
    % reading task data:
@@ -127,17 +132,14 @@ for p = 1:numel(ptIDs)
     fWin = [1 200];
     waitBar = 0;
     motherWaveletParam = 6;
-    %channels
-    % for ch = nChans:-1:1
 
+    %channels
     S_all = cell(1, nChans);
     baseLineS_all = cell(1, nChans);
     freq_all = cell(1, nChans);
-    COI_all = cell(nChans, nTrials);
 
     for ch = 1:nChans
         fprintf('\nDoing spectral calculations for chan %d of %d', ch, nChans)
-   
         for tt = 1:nTrials
             % LFP 
             if ~isnan(choiceOutcome(tt))
@@ -145,19 +147,17 @@ for p = 1:numel(ptIDs)
                 LFPseg = LFPData(ch, whichData);
         
                 [W, period, scale] = basewaveERP(LFPseg, original_freq, fWin(1), fWin(2), motherWaveletParam, waitBar);
-                S(:, :, tt) = abs(W);
+                S(:, :, tt) = 10*log10(abs(W).^2);
                 
                 if tt == 1
-                    freq_all{ch} = 1 ./ period;
+                    freq_all{ch} = 1 ./ period; 
                 end
         
                 % baseline (-700 to +300 around trialStart)
-                baseData = (trialStart(tt) - 700):(trialStart(tt) + 300 - 1);
+                baseData = (trialStart(tt) - 750):(trialStart(tt) + 500 - 1);
                 LFPbase = LFPData(ch, baseData);
-                [bW, bperiod, bscale, COI] = basewaveERP(LFPbase, original_freq, fWin(1), fWin(2), motherWaveletParam, waitBar);
-                baseLineS(:, :, tt) = abs(bW);
-                COI_all{ch, tt} = COI;
-
+                [bW, bperiod, bscale] = basewaveERP(LFPbase, original_freq, fWin(1), fWin(2), motherWaveletParam, waitBar);
+                baseLineS(:, :, tt) = 10*log10(abs(bW).^2);
             end
         end
     
@@ -169,14 +169,13 @@ for p = 1:numel(ptIDs)
     % baseline normalize 
     Sbl_all = cell(1, nChans);
     for ch = 1:nChans
-        S = S_all{ch};
+        Spec = S_all{ch};
         baseLineS = baseLineS_all{ch};
-        % removing parts of baseline in time
-        % Sbl_all{ch} = S ./ repmat(mean(mean(baseLineS, 2), 3), 1, size(S, 2), size(S, 3));
-        % Sbl_all{ch} = S ./ mean(mean(baseLineS, 2), 3);
-        Sbl_all{ch} = S ./ repmat(period', 1, size(S, 2), size(S, 3));
-     
+        % baseline normalize:
+        Sbl_all{ch} = Spec ./ repmat(mean(mean(baseLineS(:,100:end-150), 2), 3), 1, size(S, 2), size(S, 3));
 
+        % frequency noramlize:
+        % Sbl_all{ch} = S ./ repmat(period', 1, size(S, 2), size(S, 3));
     end
     
     
@@ -187,6 +186,16 @@ for p = 1:numel(ptIDs)
     
     condNames = {'arrowup', 'arrowdown'};
     condTrials = {arrowupTrials, arrowdownTrials};
+
+    % % Count number of win/lose trials
+    % nWin = numel(winTrials);
+    % nLose = numel(loseTrials);
+    % nTotal = nWin + nLose;
+    % 
+    % % Normalization factors (so that both are scaled to same total)
+    % winNormFactor = nWin / nTotal;
+    % loseNormFactor = nLose / nTotal;
+
     
     % visualization
     fig_folder = fullfile(output_folder_pt, 'spectrogram');
@@ -206,7 +215,7 @@ for p = 1:numel(ptIDs)
             tmp = mean(Sbl_all{ch}(:, choiceFeedbackWindow-choiceStart:choiceFeedbackWindow+choiceEnd-1, trialsIdx), 3);
             allVals = [allVals; tmp(:)];
         end
-        climVals = [prctile(allVals, 1), prctile(allVals, 99)];
+        climVals = [prctile(allVals, 5), prctile(allVals, 95)];
     
         
         f = figure('Visible', 'off', 'Position', [100 100 1000 1000]);
@@ -216,10 +225,11 @@ for p = 1:numel(ptIDs)
             subplot(nRows, nCols, ch);
     
             dataToPlot = mean(Sbl_all{ch}(:, choiceFeedbackWindow-choiceStart:choiceFeedbackWindow+choiceEnd-1, trialsIdx), 3);
-            
-            % ---- modified plotting line to use real frequencies ----
+
+
             imagesc(1:size(dataToPlot,2), freq_all{ch}, dataToPlot);
-            set(gca, 'YDir', 'normal');
+            set(gca, 'YDir', 'normal', 'YScale', 'log');
+
             ylim([fWin(1) fWin(2)]);
             % ----------------------------------------------------------
             
@@ -227,14 +237,14 @@ for p = 1:numel(ptIDs)
             caxis(climVals); % same colorbar scale for all
             set(gca, 'FontSize', 2);
     
-            %  red vertical line at t = 1500 ms where back of the cards appear
+            %  red vertical line at t = 200 ms where back of the cards appear
             hold on;
             xline(1500, 'r', 'LineWidth', 0.5);
             hold off;
-    
+
+
             title(sprintf('%s', anatomicalLocs{selectedChans(ch)}), ...
       'FontSize', 3, 'FontWeight', 'normal', 'Interpreter', 'none');
-
         end
     
         %  one shared horizontal colorbar at the bottom
@@ -246,10 +256,9 @@ for p = 1:numel(ptIDs)
         set(f,'Renderer','painters');
         exportgraphics(f, ...
             fullfile(fig_folder, sprintf('%s_%s.pdf', ptID, condNames{c})), ...
-            'ContentType', 'vector', ...
-            'BackgroundColor', 'none', ...
-            'Resolution', 1200); 
-
+            'ContentType','vector', ...
+            'BackgroundColor','none', ...
+            'Resolution',600);
         close(f);
     end
 
@@ -261,15 +270,13 @@ end
 
 
 % close all
-% dataToPlot = mean(S_all{1}(:, :, 1), 3);
-% 
-% imagesc(1:size(dataToPlot,2), freq_all{ch}, dataToPlot);
+% dataToPlot = mean(baseLineS_all{1}(:, :, 1), 3);
+% imagesc(dataToPlot);
 % set(gca, 'YDir', 'normal');
-% ylim([fWin(1) fWin(2)]);
+
 % 
-% hold on;
-% xvals = linspace(1, size(dataToPlot,2), numel(coi));
-% plot(xvals, 1./coi, 'w', 'LineWidth', 1.5); % overlay COI
-% legend({'COI'}, 'TextColor', 'w', 'Location', 'southwest');
-% ylim([fWin(1) fWin(2)]);
-% hold off;
+% aaa = 1:size(dataToPlot,2);
+% close all
+% plot(log10(freq_all{1}));
+
+

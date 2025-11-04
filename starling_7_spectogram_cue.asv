@@ -1,4 +1,4 @@
-% outcome based spectogram
+% cue based spectogram
 
 % trialStart: 1 , by fixation point: 500ms
 % cardShow: 2 , 1000ms
@@ -19,17 +19,16 @@ cueEnd = 800;
 flipStart = 500;
 flipEnd = 500;
 
-choiceFeedbackStart = 1000;
-choiceFeedbackEnd = 1500;
+choiceStart = 800;
+choiceEnd = 200;
 
 totalRewardStart = 200;
 totalRewardEnd = 800;
 
 cardShowWindow = 1000;
-choiceFeedbackWindow = 1500;
 
 %% Main folder
-output_folder = fullfile('\\155.100.91.44\d\Code\Nill\Starling_neural_data\starling_7_spectogram_outcome\');
+output_folder = fullfile('\\155.100.91.44\d\Code\Nill\Starling_neural_data\starling_7_spectogram_cue\');
 input_folder = fullfile('\\155.100.91.44\d\Data\Nill\starling\raw');
 d = dir(input_folder);
 
@@ -122,7 +121,7 @@ for p = 1:numel(ptIDs)
     % reading eventTimes:
     eventTimesFile = fullfile(input_folder_pt, 'eventTimes.mat');
     eventTimes = load(eventTimesFile);
-    choiceOutcome = eventTimes.choiceAndFeedbackTime;
+    cardShow = eventTimes.cardShowTime;
     trialStart = eventTimes.trialStartTime;
     
     % spectogram
@@ -138,25 +137,24 @@ for p = 1:numel(ptIDs)
 
     for ch = 1:nChans
         fprintf('\nDoing spectral calculations for chan %d of %d', ch, nChans)
+   
         for tt = 1:nTrials
-            % LFP 
-            if ~isnan(choiceOutcome(tt))
-                whichData = (choiceOutcome(tt) - choiceFeedbackWindow):(choiceOutcome(tt) + choiceFeedbackWindow- 1);
-                LFPseg = LFPData(ch, whichData);
-        
-                [W, period, scale] = basewaveERP(LFPseg, original_freq, fWin(1), fWin(2), motherWaveletParam, waitBar);
-                S(:, :, tt) = 10*log10(abs(W).^2);
-                
-                if tt == 1
-                    freq_all{ch} = 1 ./ period; 
-                end
-        
-                % baseline (-700 to +300 around trialStart)
-                baseData = (trialStart(tt) - 750):(trialStart(tt) + 500 - 1);
-                LFPbase = LFPData(ch, baseData);
-                [bW, bperiod, bscale] = basewaveERP(LFPbase, original_freq, fWin(1), fWin(2), motherWaveletParam, waitBar);
-                baseLineS(:, :, tt) = 10*log10(abs(bW).^2);
+            % LFP around cardShow
+            whichData = (cardShow(tt) - cardShowWindow):(cardShow(tt) + cardShowWindow - 1);
+            LFPseg = LFPData(ch, whichData);
+    
+            [W, period, scale] = basewaveERP(LFPseg, original_freq, fWin(1), fWin(2), motherWaveletParam, waitBar);
+            S(:, :, tt) = 10*log10(abs(W).^2);
+            
+            if tt == 1
+                freq_all{ch} = 1 ./ period; 
             end
+    
+            % baseline (-700 to +300 around trialStart)
+            baseData = (trialStart(tt) - 750):(trialStart(tt) + 500 - 1);
+            LFPbase = LFPData(ch, baseData);
+            [bW, bperiod, bscale] = basewaveERP(LFPbase, original_freq, fWin(1), fWin(2), motherWaveletParam, waitBar);
+            baseLineS(:, :, tt) = 10*log10(abs(bW).^2);
         end
     
         % save results for channel
@@ -167,33 +165,23 @@ for p = 1:numel(ptIDs)
     % baseline normalize 
     Sbl_all = cell(1, nChans);
     for ch = 1:nChans
-        Spec = S_all{ch};
+        S = S_all{ch};
         baseLineS = baseLineS_all{ch};
         % baseline normalize:
-        Sbl_all{ch} = Spec ./ repmat(mean(mean(baseLineS(:,100:end-150), 2), 3), 1, size(S, 2), size(S, 3));
+        Sbl_all{ch} = S ./ repmat(mean(mean(baseLineS(:,100:end-150), 2), 3), 1, size(S, 2), size(S, 3));
 
         % frequency noramlize:
         % Sbl_all{ch} = S ./ repmat(period', 1, size(S, 2), size(S, 3));
     end
     
     
-    winTrials = find(bhvData.outcome == "win");
-    loseTrials = find(bhvData.outcome == "lose");
-
+    UniTrials = find(bhvData.distribution == "uniform");
+    LowTrials = find(bhvData.distribution == "low");
+    HighTrials = find(bhvData.distribution == "high");
 
     
-    condNames = {'win', 'lose'};
-    condTrials = {winTrials, loseTrials};
-
-    % % Count number of win/lose trials
-    % nWin = numel(winTrials);
-    % nLose = numel(loseTrials);
-    % nTotal = nWin + nLose;
-    % 
-    % % Normalization factors (so that both are scaled to same total)
-    % winNormFactor = nWin / nTotal;
-    % loseNormFactor = nLose / nTotal;
-
+    condNames = {'Uniform', 'Low', 'High'};
+    condTrials = {UniTrials, LowTrials, HighTrials};
     
     % visualization
     fig_folder = fullfile(output_folder_pt, 'spectrogram');
@@ -210,10 +198,10 @@ for p = 1:numel(ptIDs)
         % colorbar scale across all channels
         allVals = [];
         for ch = 1:nChans
-            tmp = mean(Sbl_all{ch}(:, choiceFeedbackWindow-choiceFeedbackStart:choiceFeedbackWindow+choiceFeedbackEnd-1, trialsIdx), 3);
+            tmp = mean(Sbl_all{ch}(:, cardShowWindow-cueStart:cardShowWindow+cueEnd-1, trialsIdx), 3);
             allVals = [allVals; tmp(:)];
         end
-        climVals = [prctile(allVals, 5), prctile(allVals, 95)];
+        climVals = [prctile(allVals, 10), prctile(allVals, 90)];
     
         
         f = figure('Visible', 'off', 'Position', [100 100 1000 1000]);
@@ -222,19 +210,11 @@ for p = 1:numel(ptIDs)
         for ch = 1:nChans
             subplot(nRows, nCols, ch);
     
-            dataToPlot = mean(Sbl_all{ch}(:, choiceFeedbackWindow-choiceFeedbackStart:choiceFeedbackWindow+choiceFeedbackEnd-1, trialsIdx), 3);
-
-            % % Normalize by condition trial count proportion
-            % if strcmp(condNames{c}, 'win')
-            %     dataToPlot = dataToPlot ./ winNormFactor;
-            % else
-            %     dataToPlot = dataToPlot ./ loseNormFactor;
-            % end
-
-
+            dataToPlot = mean(Sbl_all{ch}(:, cardShowWindow-cueStart:cardShowWindow+cueEnd-1, trialsIdx), 3);
+            
+            % ---- modified plotting line to use real frequencies ----
             imagesc(1:size(dataToPlot,2), freq_all{ch}, dataToPlot);
-            set(gca, 'YDir', 'normal', 'YScale', 'log');
-
+            set(gca, 'YDir', 'normal');
             ylim([fWin(1) fWin(2)]);
             % ----------------------------------------------------------
             
@@ -244,7 +224,7 @@ for p = 1:numel(ptIDs)
     
             %  red vertical line at t = 200 ms where back of the cards appear
             hold on;
-            xline(1000, 'r', 'LineWidth', 0.5);
+            xline(200, 'r', 'LineWidth', 0.5);
             hold off;
 
 
@@ -281,7 +261,3 @@ end
 
 % 
 % aaa = 1:size(dataToPlot,2);
-% close all
-% plot(log10(freq_all{1}));
-
-
