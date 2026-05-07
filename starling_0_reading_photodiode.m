@@ -3,7 +3,7 @@ clear;
 close all;
 
 
-nevList = dir('\\155.100.91.44\d\Data\Nill\starling\raw\202514\*.nev');
+nevList = dir('\\155.100.91.44\d\Data\Nill\starling\raw\202601\*.nev');
 
 
 

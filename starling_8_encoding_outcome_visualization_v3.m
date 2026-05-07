@@ -39,7 +39,7 @@ for i = 1:numel(ptFields)
     data = database.(ptName);
 
     if ~isfield(data, 'results') || ~isfield(data, 'NewAnatomicalLocs')
-        warning('⚠️ Skipping %s: Missing results/NewAnatomicalLocs', ptName);
+        warning('Skipping %s: Missing results/NewAnatomicalLocs', ptName);
         continue;
     end
 

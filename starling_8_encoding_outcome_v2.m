@@ -2,7 +2,8 @@ clc;
 clear;
 close all;
 
-differentPatients = {'202514', '202518'};
+close all;
+differentPatients = {'202514', '202518', '202521', '202522' , '202601'};
 
 %% all these times are in ms
 cueStart = 200;
@@ -73,7 +74,7 @@ for p = 1:numel(ptIDs)
 
     %% reading selected channels using ptTrodesStarling that uses Electrodes.mat
     [trodeLabels,isECoG,~,~,anatomicalLocs] = ptTrodesSTARLING(ptID);
-    selectedChans = find(isECoG);
+    selectedChans = find(~isECoG);
     selectedChans = selectedChans(1:end-1); 
     SelectedAnatomicalLoc = anatomicalLocs(selectedChans); 
 
@@ -90,7 +91,7 @@ for p = 1:numel(ptIDs)
     [b2,a2] = iirnotch(120/(original_freq/2), (120/(original_freq/2))/25);
     
     for ch = 1:nChans
-        if strcmp(ptID, '202514')
+        if ismember(ptID, {'202514','202521'})
             % concatenate all cells in NS2.Data along time dimension
             tmpData = [];
             for c = 1:numel(NS2.Data)

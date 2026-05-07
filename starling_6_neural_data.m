@@ -10,7 +10,8 @@
 clc;
 clear;
 close all;
-differentPatients = {'202514', '202518'};
+% add new patients here
+differentPatients = {'202514', '202518', '202521', '202522' , '202601'};
 
 %% all these times are in ms
 cueStart = 100;
@@ -41,9 +42,10 @@ ptIDs = string(subFolders);
 % when we open ns2, and Data, there are 4 cells. we need to concatenate
 % those data from those cells to have a proper complete data. 
 
-ptNumber = 5;
-for p = ptNumber:ptNumber
 % for p = 1:numel(ptIDs)
+
+for p = 9:9
+
     ptID = ptIDs{p};
     fprintf('\n--- Processing ptID: %s ---\n', ptID);
     
@@ -72,7 +74,7 @@ for p = ptNumber:ptNumber
     % reading selected channels using ptTrodesStarling that uses
     % Electrodes.mat
     [trodeLabels,isECoG,~,~,anatomicalLocs] = ptTrodesSTARLING(ptID);
-    selectedChans = find(isECoG);
+    selectedChans = find(~isECoG);
     selectedChans = selectedChans(1:end-1); 
     SelectedAnatomicalLoc = anatomicalLocs(selectedChans);
 
@@ -82,8 +84,8 @@ for p = ptNumber:ptNumber
     [b1,a1] = iirnotch(60/(original_freq/2),(60/(original_freq/2))/25);
     
     for ch = 1:nChans
-        % weird 202514 case:
-        if strcmp(ptID, '202514')
+        % weird 202514 and 202521 case:
+        if ismember(ptID, {'202514','202521'})
             % concatenate all cells in NS2.Data along time dimension
             tmpData = [];
             for c = 1:numel(NS2.Data)

@@ -6,7 +6,9 @@
 clc;
 clear;
 close all;
-differentPatients = {'202514', '202518'};
+
+% add new patients here
+differentPatients = {'202514', '202518', '202601'};
 %%
 input_folder = fullfile('\\155.100.91.44\d\Data\Nill\starling\raw');
 d = dir(input_folder);
@@ -19,6 +21,7 @@ ptIDs = string(ptIDs);
 
 %% 
 for p = 1:numel(ptIDs)
+% for p = 9:9
     ptID = ptIDs{p};
     fprintf('\n--- Processing ptID: %s ---\n', ptID);
 

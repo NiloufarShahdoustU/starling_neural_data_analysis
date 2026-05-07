@@ -29,9 +29,9 @@ ptIDs = string(subFolders);
 
 %%
 % ptNumber = 1;
-% for p = ptNumber:ptNumber
 
 for p = 1:numel(ptIDs)
+% for p = 8:8
     ptID = ptIDs{p};
     fprintf('\n--- Processing ptID: %s ---\n', ptID);
     input_folder_pt = fullfile(input_folder, ptID);  

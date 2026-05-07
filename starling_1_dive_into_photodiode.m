@@ -1,8 +1,9 @@
 clc;
 clear;
 close all;
-ptID = '202514'; 
-differentPatients = {'202514', '202518'};
+ptID = '202601'; 
+% add pts with new daq system
+differentPatients = {'202514', '202518', '202601'};
 %% 
 if any(strcmp(ptID, differentPatients ))
     nevList = dir(fullfile('\\155.100.91.44\d\Data\Nill\starling\raw', ptID, '\nsp_photodiode_data\*.nev'));

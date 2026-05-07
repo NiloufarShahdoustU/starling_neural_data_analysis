@@ -11,7 +11,8 @@
 clc;
 clear;
 close all;
-differentPatients = {'202514', '202518'};
+% add new patients here
+differentPatients = {'202421', '202509', '202511', '202512'};
 %% Main folder
 input_folder = fullfile('\\155.100.91.44\d\Data\Nill\starling\raw');
 d = dir(input_folder);
@@ -23,7 +24,8 @@ subFolders(ismember(subFolders,{'.','..'})) = [];
 ptIDs = string(subFolders);
 
 %%
-for p = 1:numel(ptIDs)
+% for p = 1:numel(ptIDs)
+for p = 7:7
     ptID = ptIDs{p};
     fprintf('\n--- Processing ptID: %s ---\n', ptID);
 
@@ -31,9 +33,9 @@ for p = 1:numel(ptIDs)
 
     % --- find NEV file ---
     if any(strcmp(ptID, differentPatients ))
-        nevList = dir(fullfile(input_folder, ptID, '\nsp_photodiode_data\*.nev'));
+        nevList = dir(fullfile(input_folder_pt, '*.nev'));
     else
-        nevList = dir(fullfile(input_folder, ptID, '*.nev'));
+        nevList = dir(fullfile(input_folder_pt, '\hub_neural_data\*.nev'));
     end
     
     if length(nevList) > 1

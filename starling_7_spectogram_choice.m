@@ -10,8 +10,9 @@
 clc;
 clear;
 close all;
-differentPatients = {'202514', '202518'};
-
+% add new patients here
+differentPatients = {'202421', '202509', '202511', '202512'};
+needsConcatenationPts = {'202514','202521'};
 %% all these times are in ms
 cueStart = 200;
 cueEnd = 800;
@@ -43,9 +44,11 @@ ptIDs = string(subFolders);
 
 %%
 
-ptNumber = 1;
-for p = ptNumber:ptNumber
-% for p = 1:numel(ptIDs)
+% ptNumber = 8;
+% for p = ptNumber:ptNumber
+
+
+for p = 1:numel(ptIDs)
     ptID = ptIDs{p};
     fprintf('\n--- Processing ptID: %s ---\n', ptID);
     
@@ -54,9 +57,9 @@ for p = ptNumber:ptNumber
 
    % reading neural data
     if any(strcmp(ptID, differentPatients ))
-        nevList = dir(fullfile(input_folder_pt, '\hub_neural_data\*.nev'));
-    else
         nevList = dir(fullfile(input_folder_pt, '*.nev'));
+    else
+        nevList = dir(fullfile(input_folder_pt, '\hub_neural_data\*.nev'));
     end
     
     if length(nevList) > 1
@@ -75,7 +78,7 @@ for p = ptNumber:ptNumber
     % reading selected channels using ptTrodesStarling that uses
     % Electrodes.mat
     [trodeLabels,isECoG,~,~,anatomicalLocs] = ptTrodesSTARLING(ptID);
-    selectedChans = find(isECoG);
+    selectedChans = find(~isECoG);
     selectedChans = selectedChans(1:end-1); 
     SelectedAnatomicalLoc = anatomicalLocs(selectedChans);
 
@@ -85,7 +88,7 @@ for p = ptNumber:ptNumber
     [b2,a2] = iirnotch(120/(original_freq/2), (120/(original_freq/2))/25);
     
     for ch = 1:nChans
-        if strcmp(ptID, '202514')
+        if ismember(ptID, needsConcatenationPts)
             % concatenate all cells in NS2.Data along time dimension
             tmpData = [];
             for c = 1:numel(NS2.Data)
@@ -136,49 +139,74 @@ for p = ptNumber:ptNumber
     %channels
     S_all = cell(1, nChans);
     baseLineS_all = cell(1, nChans);
-    freq_all = cell(1, nChans);
 
+
+    Sbl_all = cell(1, nChans);
+    freq_all = cell(1, nChans);
+    
     for ch = 1:nChans
         fprintf('\nDoing spectral calculations for chan %d of %d', ch, nChans)
+    
+        clear S
+        S = [];
+        baselineSum = [];
+        baselineCount = 0;
+    
         for tt = 1:nTrials
-            % LFP 
+    
             if ~isnan(choiceOutcome(tt))
-                whichData = (choiceOutcome(tt) - choiceFeedbackWindow):(choiceOutcome(tt) + choiceFeedbackWindow- 1);
+    
+                % main LFP segment
+                whichData = (choiceOutcome(tt) - choiceFeedbackWindow):(choiceOutcome(tt) + choiceFeedbackWindow - 1);
                 LFPseg = LFPData(ch, whichData);
-        
+    
                 [W, period, scale] = basewaveERP(LFPseg, original_freq, fWin(1), fWin(2), motherWaveletParam, waitBar);
-                S(:, :, tt) = 10*log10(abs(W).^2);
-                
-                if tt == 1
-                    freq_all{ch} = 1 ./ period; 
+                pow = single(10*log10(abs(W).^2));
+    
+                S(:, :, tt) = pow;
+    
+                if isempty(freq_all{ch})
+                    freq_all{ch} = 1 ./ period;
                 end
-        
-                % baseline (-700 to +300 around trialStart)
+    
+                % baseline segment
                 baseData = (trialStart(tt) - 750):(trialStart(tt) + 500 - 1);
                 LFPbase = LFPData(ch, baseData);
+    
                 [bW, bperiod, bscale] = basewaveERP(LFPbase, original_freq, fWin(1), fWin(2), motherWaveletParam, waitBar);
-                baseLineS(:, :, tt) = 10*log10(abs(bW).^2);
+                bPow = single(10*log10(abs(bW).^2));
+    
+                baselineWindow = bPow(:, 100:end-150);
+    
+                if isempty(baselineSum)
+                    baselineSum = zeros(size(bPow,1), 1, 'single');
+                end
+    
+                baselineSum = baselineSum + mean(baselineWindow, 2);
+                baselineCount = baselineCount + 1;
             end
         end
     
-        % save results for channel
-        S_all{ch} = S;
-        baseLineS_all{ch} = baseLineS;
+        baselineMean = baselineSum ./ baselineCount;
+    
+        Sbl_all{ch} = S ./ repmat(baselineMean, 1, size(S,2), size(S,3));
+    
+        clear S baselineSum baselineMean W bW pow bPow
     end
     
-    % baseline normalize 
-    Sbl_all = cell(1, nChans);
-    for ch = 1:nChans
-        Spec = S_all{ch};
-        baseLineS = baseLineS_all{ch};
-        % baseline normalize:
-        Sbl_all{ch} = Spec ./ repmat(mean(mean(baseLineS(:,100:end-150), 2), 3), 1, size(S, 2), size(S, 3));
-
-        % frequency noramlize:
-        % Sbl_all{ch} = S ./ repmat(period', 1, size(S, 2), size(S, 3));
-    end
-    
-    
+    % % baseline normalize 
+    % Sbl_all = cell(1, nChans);
+    % for ch = 1:nChans
+    %     Spec = S_all{ch};
+    %     baseLineS = baseLineS_all{ch};
+    %     % baseline normalize:
+    %     Sbl_all{ch} = Spec ./ repmat(mean(mean(baseLineS(:,100:end-150), 2), 3), 1, size(S, 2), size(S, 3));
+    % 
+    %     % frequency noramlize:
+    %     % Sbl_all{ch} = S ./ repmat(period', 1, size(S, 2), size(S, 3));
+    % end
+    % 
+    % 
     arrowupTrials = find(bhvData.choice == "arrowup");
     arrowdownTrials = find(bhvData.choice == "arrowdown");
 
