@@ -191,7 +191,7 @@ for p = 1:numel(files)
                 hold on;
 
                 % vertical red line at 500 ms
-                xline(500, 'r', 'LineWidth', 0.5);
+                xline(1000, 'r', 'LineWidth', 0.5);
 
                 hold off;
 
