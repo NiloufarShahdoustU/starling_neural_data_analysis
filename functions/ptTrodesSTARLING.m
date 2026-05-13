@@ -38,7 +38,12 @@ end
 
 
 % [20190315] getting anatomical labels, if they exist.
-trodeLocs = fullfile('\\155.100.91.44\d','Data',['UIC' patientID],'Imaging','Registered','ChannelMap.mat');
+if strcmp(patientID, '202521')
+    trodeLocs = fullfile('\\155.100.91.44\d','Data',['UIC' patientID],'Imaging','Registered','DI_ChannelMap_OddStarVal.mat');
+else
+    trodeLocs = fullfile('\\155.100.91.44\d','Data',['UIC' patientID],'Imaging','Registered','ChannelMap.mat');
+end
+
 if exist(trodeLocs,'file')
     load(trodeLocs)
 
@@ -58,7 +63,11 @@ else
     try
         load(fullfile('\\155.100.91.44\d','Data',['CS' patientID],'Imaging','Registered','Electrodes.mat'));
     catch
-        load(fullfile('\\155.100.91.44\d','Data',['UIC' patientID],'Imaging','Registered','Electrodes.mat'));
+        if strcmp(patientID, '202521')
+            load(fullfile('\\155.100.91.44\d','Data',['CS' patientID],'Imaging','Registered','DI_Electrodes_OddStarVal.mat'));
+        else
+            load(fullfile('\\155.100.91.44\d','Data',['UIC' patientID],'Imaging','Registered','Electrodes.mat'));
+        end
     end
 
     % pre-20230228 code::

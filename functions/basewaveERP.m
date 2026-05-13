@@ -35,10 +35,10 @@
 function [wave,period,scale,coi]=basewaveERP(Y,adrate,loF,hiF,k0,waitc)
 
 dt      = 1/adrate;		   
-dj      = 0.08;
+dj      = 0.35; % bigger dj = smaller number of bins for frequency
 s0      = 1/(hiF+(0.1*hiF));    % the smallest resolvable scale
 pad     = 0;                        % zero padding (1-on, 0-off)
-% k0      = 6;                        % the mother wavelet parameter (wavenumber), default is 6.
+k0      = 6;                        % the mother wavelet parameter (wavenumber), default is 6.
 frq_lo  = loF;
 frq_hi  = hiF;
 n = length(Y);
