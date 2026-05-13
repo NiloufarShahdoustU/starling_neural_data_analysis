@@ -1,13 +1,13 @@
-% outcome based spectrogram visualization with t-test CBPT
-% statistics: average channels within brain area per trial, then win vs lose t-test
-% visualization: win/lose average spectrograms, nonsignificant TF bins dimmed
+% choice based spectrogram visualization with t-test CBPT
+% statistics: average channels within brain area per trial, then arrowup vs arrowdown t-test
+% visualization: arrowup/arrowdown average spectrograms, nonsignificant TF bins dimmed
 
 clc;
 clear;
 close all;
 
-output_folder = fullfile('\\155.100.91.44\d\Code\Nill\Starling_neural_data\starling_12_CBPT_total_reward\');
-input_folder  = fullfile('\\155.100.91.44\d\Data\Nill\starling\spectrograms\total_reward\');
+output_folder = fullfile('\\155.100.91.44\d\Code\Nill\Starling_neural_data\starling_12_CBPT_choice_v1\');
+input_folder  = fullfile('\\155.100.91.44\d\Data\Nill\starling\spectrograms\choice\');
 
 if ~exist(output_folder, 'dir')
     mkdir(output_folder);
@@ -44,13 +44,13 @@ for p = 1:numel(files)
 
     nChans = numel(Sbl_all);
 
-    outcome = string(bhvData.outcome);
+    choice = string(bhvData.choice);
 
-    winTrials  = find(outcome == "win");
-    loseTrials = find(outcome == "lose");
+    arrowUpTrials   = find(choice == "arrowup");
+    arrowDownTrials = find(choice == "arrowdown");
 
-    condNames  = {'win', 'lose'};
-    condTrials = {winTrials, loseTrials};
+    condNames  = {'arrowup', 'arrowdown'};
+    condTrials = {arrowUpTrials, arrowDownTrials};
 
     cleanAnat = strings(nChans, 1);
 
@@ -104,8 +104,8 @@ for p = 1:numel(files)
         validTimeIdx = 1:(nTime - removeLastMs);
         validFreqIdx = find(freqVec >= fWin(1) & freqVec <= fWin(2));
 
-        statsTrials = [winTrials; loseTrials];
-        statsOutcome = outcome(statsTrials);
+        statsTrials = [arrowUpTrials; arrowDownTrials];
+        statsChoice = choice(statsTrials);
 
         areaTrialData = nan(numel(validFreqIdx), numel(validTimeIdx), numel(statsTrials));
 
@@ -130,10 +130,10 @@ for p = 1:numel(files)
 
         end
 
-        winLocalIdx = find(statsOutcome == "win");
-        loseLocalIdx = find(statsOutcome == "lose");
+        arrowUpLocalIdx   = find(statsChoice == "arrowup");
+        arrowDownLocalIdx = find(statsChoice == "arrowdown");
 
-        if isempty(winLocalIdx) || isempty(loseLocalIdx)
+        if isempty(arrowUpLocalIdx) || isempty(arrowDownLocalIdx)
 
             fprintf('Skipping %s because one condition is empty.\n', areaName);
 
@@ -144,7 +144,8 @@ for p = 1:numel(files)
         else
 
             [sigMaskSmall, pMapSmall, tMapSmall] = run_ttest_cbpt( ...
-                areaTrialData, winLocalIdx, loseLocalIdx, nPerm, alphaBin, alphaCluster, minClusterSize);
+                areaTrialData, arrowUpLocalIdx, arrowDownLocalIdx, ...
+                nPerm, alphaBin, alphaCluster, minClusterSize);
 
         end
 
@@ -201,7 +202,7 @@ for p = 1:numel(files)
 
         safeAreaName = matlab.lang.makeValidName(char(areaName));
 
-        save(fullfile(output_folder, sprintf('%s_%s_ttest_CBPT_results.mat', ptID, safeAreaName)), ...
+        save(fullfile(output_folder, sprintf('%s_%s_choice_ttest_CBPT_results.mat', ptID, safeAreaName)), ...
             'sigMaskSmall', 'fullSigMask', ...
             'pMapSmall', 'tMapSmall', 'fullPMap', 'fullTMap', ...
             'freqVec', 'validFreqIdx', 'validTimeIdx', ...
@@ -227,7 +228,7 @@ for p = 1:numel(files)
             'TileSpacing', 'compact', ...
             'Padding', 'compact');
 
-        title(t, sprintf('%s | Outcome Spectrogram with t-test CBPT | Page %d', ptID, pageNum), ...
+        title(t, sprintf('%s | Choice Spectrogram with t-test CBPT | Page %d', ptID, pageNum), ...
             'FontWeight', 'bold', ...
             'Interpreter', 'none');
 
@@ -283,6 +284,10 @@ for p = 1:numel(files)
                     caxis(rowClimVals{a});
                 end
 
+                hold on;
+                xline(1000, 'r', 'LineWidth', 0.5);
+                hold off;
+
                 set(gca, 'FontSize', 9);
 
                 if c == 1
@@ -298,7 +303,7 @@ for p = 1:numel(files)
                 end
 
                 if rr == nPageRows
-                    xlabel('Time');
+                    xlabel('Time (ms)');
                 end
 
                 if c == 2
@@ -314,7 +319,7 @@ for p = 1:numel(files)
         set(f, 'Renderer', 'opengl');
 
         exportgraphics(f, ...
-            fullfile(output_folder, sprintf('%s_win_lose_ttest_CBPT_spectrogram_page_%02d.pdf', ptID, pageNum)), ...
+            fullfile(output_folder, sprintf('%s_arrowup_arrowdown_ttest_CBPT_spectrogram_page_%02d.pdf', ptID, pageNum)), ...
             'ContentType', 'image', ...
             'BackgroundColor', 'white', ...
             'Resolution', 600);
@@ -325,7 +330,7 @@ for p = 1:numel(files)
 
 end
 
-function [sigMask, pMap, tMap] = run_ttest_cbpt(areaTrialData, winIdx, loseIdx, nPerm, alphaBin, alphaCluster, minClusterSize)
+function [sigMask, pMap, tMap] = run_ttest_cbpt(areaTrialData, cond1Idx, cond2Idx, nPerm, alphaBin, alphaCluster, minClusterSize)
 
     nFreq = size(areaTrialData, 1);
     nTime = size(areaTrialData, 2);
@@ -333,7 +338,7 @@ function [sigMask, pMap, tMap] = run_ttest_cbpt(areaTrialData, winIdx, loseIdx, 
 
     fprintf('Fitting real t-tests...\n');
 
-    [tMap, pMap] = compute_ttest_maps(areaTrialData, winIdx, loseIdx);
+    [tMap, pMap] = compute_ttest_maps(areaTrialData, cond1Idx, cond2Idx);
 
     candidateMask = pMap < alphaBin;
     candidateMask(isnan(candidateMask)) = false;
@@ -372,8 +377,8 @@ function [sigMask, pMap, tMap] = run_ttest_cbpt(areaTrialData, winIdx, loseIdx, 
     end
 
     labels = zeros(nTrials, 1);
-    labels(winIdx) = 1;
-    labels(loseIdx) = 2;
+    labels(cond1Idx) = 1;
+    labels(cond2Idx) = 2;
 
     validTrials = find(labels > 0);
     labelsValid = labels(validTrials);
@@ -386,10 +391,10 @@ function [sigMask, pMap, tMap] = run_ttest_cbpt(areaTrialData, winIdx, loseIdx, 
 
         shuffledLabels = labelsValid(randperm(numel(labelsValid)));
 
-        permWinIdx = validTrials(shuffledLabels == 1);
-        permLoseIdx = validTrials(shuffledLabels == 2);
+        permCond1Idx = validTrials(shuffledLabels == 1);
+        permCond2Idx = validTrials(shuffledLabels == 2);
 
-        [permTMap, permPMap] = compute_ttest_maps(areaTrialData, permWinIdx, permLoseIdx);
+        [permTMap, permPMap] = compute_ttest_maps(areaTrialData, permCond1Idx, permCond2Idx);
 
         permCandidateMask = permPMap < alphaBin;
         permCandidateMask(isnan(permCandidateMask)) = false;
@@ -443,7 +448,7 @@ function [sigMask, pMap, tMap] = run_ttest_cbpt(areaTrialData, winIdx, loseIdx, 
 
 end
 
-function [tMap, pMap] = compute_ttest_maps(areaTrialData, winIdx, loseIdx)
+function [tMap, pMap] = compute_ttest_maps(areaTrialData, cond1Idx, cond2Idx)
 
     nFreq = size(areaTrialData, 1);
     nTime = size(areaTrialData, 2);
@@ -451,15 +456,15 @@ function [tMap, pMap] = compute_ttest_maps(areaTrialData, winIdx, loseIdx)
     tMap = nan(nFreq, nTime);
     pMap = nan(nFreq, nTime);
 
-    winData = areaTrialData(:, :, winIdx);
-    loseData = areaTrialData(:, :, loseIdx);
+    cond1Data = areaTrialData(:, :, cond1Idx);
+    cond2Data = areaTrialData(:, :, cond2Idx);
 
     for fi = 1:nFreq
 
         for ti = 1:nTime
 
-            x = squeeze(winData(fi, ti, :));
-            y = squeeze(loseData(fi, ti, :));
+            x = squeeze(cond1Data(fi, ti, :));
+            y = squeeze(cond2Data(fi, ti, :));
 
             x = x(~isnan(x));
             y = y(~isnan(y));

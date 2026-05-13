@@ -1,4 +1,4 @@
-% flip based spectrogram visualization with one-way ANOVA CBPT
+% cue based spectrogram visualization with one-way ANOVA CBPT
 % conditions: uniform / low / high
 % statistics: average channels within brain area per trial, then one-way ANOVA per TF bin
 % visualization: condition averages, nonsignificant TF bins dimmed
@@ -7,8 +7,8 @@ clc;
 clear;
 close all;
 
-output_folder = fullfile('\\155.100.91.44\d\Code\Nill\Starling_neural_data\starling_12_CBPT_flip\');
-input_folder  = fullfile('\\155.100.91.44\d\Data\Nill\starling\spectrograms\flip\');
+output_folder = fullfile('\\155.100.91.44\d\Code\Nill\Starling_neural_data\starling_12_CBPT_cue_v1\');
+input_folder  = fullfile('\\155.100.91.44\d\Data\Nill\starling\spectrograms\cue\');
 
 if ~exist(output_folder, 'dir')
     mkdir(output_folder);
@@ -208,7 +208,7 @@ for p = 1:numel(files)
 
         safeAreaName = matlab.lang.makeValidName(char(areaName));
 
-        save(fullfile(output_folder, sprintf('%s_%s_flip_anova_CBPT_results.mat', ptID, safeAreaName)), ...
+        save(fullfile(output_folder, sprintf('%s_%s_cue_anova_CBPT_results.mat', ptID, safeAreaName)), ...
             'sigMaskSmall', 'fullSigMask', ...
             'pMapSmall', 'fMapSmall', 'fullPMap', 'fullFMap', ...
             'freqVec', 'validFreqIdx', 'validTimeIdx', ...
@@ -234,7 +234,7 @@ for p = 1:numel(files)
             'TileSpacing', 'compact', ...
             'Padding', 'compact');
 
-        title(t, sprintf('%s | Flip Spectrogram with one-way ANOVA CBPT | Page %d', ptID, pageNum), ...
+        title(t, sprintf('%s | Cue Spectrogram with one-way ANOVA CBPT | Page %d', ptID, pageNum), ...
             'FontWeight', 'bold', ...
             'Interpreter', 'none');
 
@@ -291,7 +291,7 @@ for p = 1:numel(files)
                 end
 
                 hold on;
-                xline(1000, 'r', 'LineWidth', 0.5);
+                xline(500, 'r', 'LineWidth', 0.5);
                 hold off;
 
                 set(gca, 'FontSize', 9);
@@ -325,7 +325,7 @@ for p = 1:numel(files)
         set(f, 'Renderer', 'opengl');
 
         exportgraphics(f, ...
-            fullfile(output_folder, sprintf('%s_uniform_low_high_flip_anova_CBPT_page_%02d.pdf', ptID, pageNum)), ...
+            fullfile(output_folder, sprintf('%s_uniform_low_high_anova_CBPT_spectrogram_page_%02d.pdf', ptID, pageNum)), ...
             'ContentType', 'image', ...
             'BackgroundColor', 'white', ...
             'Resolution', 600);
@@ -475,7 +475,6 @@ function [fMap, pMap] = compute_anova_maps(areaTrialData, groupLabels)
             end
 
             try
-
                 p = anova1(yValid, gValid, 'off');
 
                 pMap(fi, ti) = p;
@@ -500,7 +499,7 @@ function [fMap, pMap] = compute_anova_maps(areaTrialData, groupLabels)
                            sum((yValid(gValid == 2) - groupMeans(2)).^2) + ...
                            sum((yValid(gValid == 3) - groupMeans(3)).^2);
 
-                dfBetween = 2;
+                dfBetween = 3 - 1;
                 dfWithin = numel(yValid) - 3;
 
                 if dfWithin > 0 && ssWithin > 0
@@ -508,10 +507,8 @@ function [fMap, pMap] = compute_anova_maps(areaTrialData, groupLabels)
                 end
 
             catch
-
                 pMap(fi, ti) = NaN;
                 fMap(fi, ti) = NaN;
-
             end
 
         end

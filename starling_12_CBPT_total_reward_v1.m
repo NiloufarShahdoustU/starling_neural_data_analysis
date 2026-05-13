@@ -1,14 +1,13 @@
-% cue based spectrogram visualization with one-way ANOVA CBPT
-% conditions: uniform / low / high
-% statistics: average channels within brain area per trial, then one-way ANOVA per TF bin
-% visualization: condition averages, nonsignificant TF bins dimmed
+% outcome based spectrogram visualization with t-test CBPT
+% statistics: average channels within brain area per trial, then win vs lose t-test
+% visualization: win/lose average spectrograms, nonsignificant TF bins dimmed
 
 clc;
 clear;
 close all;
 
-output_folder = fullfile('\\155.100.91.44\d\Code\Nill\Starling_neural_data\starling_12_CBPT_cue\');
-input_folder  = fullfile('\\155.100.91.44\d\Data\Nill\starling\spectrograms\cue\');
+output_folder = fullfile('\\155.100.91.44\d\Code\Nill\Starling_neural_data\starling_12_CBPT_total_reward_v1\');
+input_folder  = fullfile('\\155.100.91.44\d\Data\Nill\starling\spectrograms\total_reward\');
 
 if ~exist(output_folder, 'dir')
     mkdir(output_folder);
@@ -45,14 +44,13 @@ for p = 1:numel(files)
 
     nChans = numel(Sbl_all);
 
-    cue = lower(string(bhvData.distribution));
+    outcome = string(bhvData.outcome);
 
-    uniformTrials = find(cue == "uniform");
-    lowTrials     = find(cue == "low");
-    highTrials    = find(cue == "high");
+    winTrials  = find(outcome == "win");
+    loseTrials = find(outcome == "lose");
 
-    condNames  = {'uniform', 'low', 'high'};
-    condTrials = {uniformTrials, lowTrials, highTrials};
+    condNames  = {'win', 'lose'};
+    condTrials = {winTrials, loseTrials};
 
     cleanAnat = strings(nChans, 1);
 
@@ -79,10 +77,10 @@ for p = 1:numel(files)
 
     nAreas = numel(brainAreas);
 
-    areaCondData = cell(nAreas, 3);
+    areaCondData = cell(nAreas, 2);
     areaSigMask = cell(nAreas, 1);
     areaPMap = cell(nAreas, 1);
-    areaFMap = cell(nAreas, 1);
+    areaTMap = cell(nAreas, 1);
     rowClimVals = cell(nAreas, 1);
 
     for a = 1:nAreas
@@ -90,7 +88,7 @@ for p = 1:numel(files)
         areaName = brainAreas(a);
         areaChans = find(cleanAnat == areaName);
 
-        fprintf('\nRunning one-way ANOVA CBPT for area: %s | channels: %d\n', areaName, numel(areaChans));
+        fprintf('\nRunning t-test CBPT for area: %s | channels: %d\n', areaName, numel(areaChans));
 
         firstCh = areaChans(1);
 
@@ -106,13 +104,8 @@ for p = 1:numel(files)
         validTimeIdx = 1:(nTime - removeLastMs);
         validFreqIdx = find(freqVec >= fWin(1) & freqVec <= fWin(2));
 
-        statsTrials = [uniformTrials; lowTrials; highTrials];
-
-        groupLabels = [
-            ones(numel(uniformTrials), 1);
-            2 * ones(numel(lowTrials), 1);
-            3 * ones(numel(highTrials), 1)
-        ];
+        statsTrials = [winTrials; loseTrials];
+        statsOutcome = outcome(statsTrials);
 
         areaTrialData = nan(numel(validFreqIdx), numel(validTimeIdx), numel(statsTrials));
 
@@ -137,39 +130,39 @@ for p = 1:numel(files)
 
         end
 
-        if numel(unique(groupLabels)) < 3 || ...
-                sum(groupLabels == 1) < 2 || ...
-                sum(groupLabels == 2) < 2 || ...
-                sum(groupLabels == 3) < 2
+        winLocalIdx = find(statsOutcome == "win");
+        loseLocalIdx = find(statsOutcome == "lose");
 
-            fprintf('Skipping %s because one condition has fewer than 2 trials.\n', areaName);
+        if isempty(winLocalIdx) || isempty(loseLocalIdx)
+
+            fprintf('Skipping %s because one condition is empty.\n', areaName);
 
             sigMaskSmall = false(numel(validFreqIdx), numel(validTimeIdx));
             pMapSmall = nan(numel(validFreqIdx), numel(validTimeIdx));
-            fMapSmall = nan(numel(validFreqIdx), numel(validTimeIdx));
+            tMapSmall = nan(numel(validFreqIdx), numel(validTimeIdx));
 
         else
 
-            [sigMaskSmall, pMapSmall, fMapSmall] = run_anova_cbpt( ...
-                areaTrialData, groupLabels, nPerm, alphaBin, alphaCluster, minClusterSize);
+            [sigMaskSmall, pMapSmall, tMapSmall] = run_ttest_cbpt( ...
+                areaTrialData, winLocalIdx, loseLocalIdx, nPerm, alphaBin, alphaCluster, minClusterSize);
 
         end
 
         fullSigMask = false(nFreq, nTime);
         fullPMap = nan(nFreq, nTime);
-        fullFMap = nan(nFreq, nTime);
+        fullTMap = nan(nFreq, nTime);
 
         fullSigMask(validFreqIdx, validTimeIdx) = sigMaskSmall;
         fullPMap(validFreqIdx, validTimeIdx) = pMapSmall;
-        fullFMap(validFreqIdx, validTimeIdx) = fMapSmall;
+        fullTMap(validFreqIdx, validTimeIdx) = tMapSmall;
 
         areaSigMask{a} = fullSigMask;
         areaPMap{a} = fullPMap;
-        areaFMap{a} = fullFMap;
+        areaTMap{a} = fullTMap;
 
         rowVals = [];
 
-        for c = 1:3
+        for c = 1:2
 
             trialsIdx = condTrials{c};
 
@@ -208,16 +201,16 @@ for p = 1:numel(files)
 
         safeAreaName = matlab.lang.makeValidName(char(areaName));
 
-        save(fullfile(output_folder, sprintf('%s_%s_cue_anova_CBPT_results.mat', ptID, safeAreaName)), ...
+        save(fullfile(output_folder, sprintf('%s_%s_ttest_CBPT_results.mat', ptID, safeAreaName)), ...
             'sigMaskSmall', 'fullSigMask', ...
-            'pMapSmall', 'fMapSmall', 'fullPMap', 'fullFMap', ...
+            'pMapSmall', 'tMapSmall', 'fullPMap', 'fullTMap', ...
             'freqVec', 'validFreqIdx', 'validTimeIdx', ...
             'areaName', 'areaChans', ...
-            'condNames', 'nPerm', 'alphaBin', 'alphaCluster', 'minClusterSize', '-v7.3');
+            'nPerm', 'alphaBin', 'alphaCluster', 'minClusterSize', '-v7.3');
 
     end
 
-    rowsPerPage = 4;
+    rowsPerPage = 5;
     nPages = ceil(nAreas / rowsPerPage);
 
     for pageNum = 1:nPages
@@ -228,13 +221,13 @@ for p = 1:numel(files)
         nPageRows = numel(pageAreas);
 
         f = figure('Visible', 'off', ...
-            'Position', [100 100 1800 400 * nPageRows]);
+            'Position', [100 100 1400 400 * nPageRows]);
 
-        t = tiledlayout(nPageRows, 3, ...
+        t = tiledlayout(nPageRows, 2, ...
             'TileSpacing', 'compact', ...
             'Padding', 'compact');
 
-        title(t, sprintf('%s | Cue Spectrogram with one-way ANOVA CBPT | Page %d', ptID, pageNum), ...
+        title(t, sprintf('%s | Outcome Spectrogram with t-test CBPT | Page %d', ptID, pageNum), ...
             'FontWeight', 'bold', ...
             'Interpreter', 'none');
 
@@ -242,7 +235,7 @@ for p = 1:numel(files)
 
             a = pageAreas(rr);
 
-            for c = 1:3
+            for c = 1:2
 
                 ax = nexttile;
 
@@ -290,10 +283,6 @@ for p = 1:numel(files)
                     caxis(rowClimVals{a});
                 end
 
-                hold on;
-                xline(500, 'r', 'LineWidth', 0.5);
-                hold off;
-
                 set(gca, 'FontSize', 9);
 
                 if c == 1
@@ -309,10 +298,10 @@ for p = 1:numel(files)
                 end
 
                 if rr == nPageRows
-                    xlabel('Time (ms)');
+                    xlabel('Time');
                 end
 
-                if c == 3
+                if c == 2
                     h = colorbar(ax, 'eastoutside');
                     h.Label.String = 'power';
                     h.FontSize = 8;
@@ -325,7 +314,7 @@ for p = 1:numel(files)
         set(f, 'Renderer', 'opengl');
 
         exportgraphics(f, ...
-            fullfile(output_folder, sprintf('%s_uniform_low_high_anova_CBPT_spectrogram_page_%02d.pdf', ptID, pageNum)), ...
+            fullfile(output_folder, sprintf('%s_win_lose_ttest_CBPT_spectrogram_page_%02d.pdf', ptID, pageNum)), ...
             'ContentType', 'image', ...
             'BackgroundColor', 'white', ...
             'Resolution', 600);
@@ -336,15 +325,15 @@ for p = 1:numel(files)
 
 end
 
-function [sigMask, pMap, fMap] = run_anova_cbpt(areaTrialData, groupLabels, nPerm, alphaBin, alphaCluster, minClusterSize)
+function [sigMask, pMap, tMap] = run_ttest_cbpt(areaTrialData, winIdx, loseIdx, nPerm, alphaBin, alphaCluster, minClusterSize)
 
     nFreq = size(areaTrialData, 1);
     nTime = size(areaTrialData, 2);
     nTrials = size(areaTrialData, 3);
 
-    fprintf('Fitting real one-way ANOVA maps...\n');
+    fprintf('Fitting real t-tests...\n');
 
-    [fMap, pMap] = compute_anova_maps(areaTrialData, groupLabels);
+    [tMap, pMap] = compute_ttest_maps(areaTrialData, winIdx, loseIdx);
 
     candidateMask = pMap < alphaBin;
     candidateMask(isnan(candidateMask)) = false;
@@ -365,7 +354,7 @@ function [sigMask, pMap, fMap] = run_anova_cbpt(areaTrialData, groupLabels, nPer
             continue;
         end
 
-        clusterStat = sum(fMap(pix), 'omitnan');
+        clusterStat = sum(abs(tMap(pix)), 'omitnan');
 
         if ~isnan(clusterStat)
             realClusterStats(end+1, 1) = clusterStat;
@@ -382,15 +371,25 @@ function [sigMask, pMap, fMap] = run_anova_cbpt(areaTrialData, groupLabels, nPer
         return;
     end
 
+    labels = zeros(nTrials, 1);
+    labels(winIdx) = 1;
+    labels(loseIdx) = 2;
+
+    validTrials = find(labels > 0);
+    labelsValid = labels(validTrials);
+
     maxNull = zeros(nPerm, 1);
 
     fprintf('Running %d permutations...\n', nPerm);
 
     for permIdx = 1:nPerm
 
-        shuffledLabels = groupLabels(randperm(nTrials));
+        shuffledLabels = labelsValid(randperm(numel(labelsValid)));
 
-        [permFMap, permPMap] = compute_anova_maps(areaTrialData, shuffledLabels);
+        permWinIdx = validTrials(shuffledLabels == 1);
+        permLoseIdx = validTrials(shuffledLabels == 2);
+
+        [permTMap, permPMap] = compute_ttest_maps(areaTrialData, permWinIdx, permLoseIdx);
 
         permCandidateMask = permPMap < alphaBin;
         permCandidateMask(isnan(permCandidateMask)) = false;
@@ -407,7 +406,7 @@ function [sigMask, pMap, fMap] = run_anova_cbpt(areaTrialData, groupLabels, nPer
                 continue;
             end
 
-            clusterStat = sum(permFMap(pix), 'omitnan');
+            clusterStat = sum(abs(permTMap(pix)), 'omitnan');
 
             if ~isnan(clusterStat)
                 permClusterStats(end+1, 1) = clusterStat;
@@ -444,71 +443,40 @@ function [sigMask, pMap, fMap] = run_anova_cbpt(areaTrialData, groupLabels, nPer
 
 end
 
-function [fMap, pMap] = compute_anova_maps(areaTrialData, groupLabels)
+function [tMap, pMap] = compute_ttest_maps(areaTrialData, winIdx, loseIdx)
 
     nFreq = size(areaTrialData, 1);
     nTime = size(areaTrialData, 2);
 
-    fMap = nan(nFreq, nTime);
+    tMap = nan(nFreq, nTime);
     pMap = nan(nFreq, nTime);
 
-    groupLabels = groupLabels(:);
+    winData = areaTrialData(:, :, winIdx);
+    loseData = areaTrialData(:, :, loseIdx);
 
     for fi = 1:nFreq
 
         for ti = 1:nTime
 
-            y = squeeze(areaTrialData(fi, ti, :));
-            y = y(:);
+            x = squeeze(winData(fi, ti, :));
+            y = squeeze(loseData(fi, ti, :));
 
-            validIdx = ~isnan(y) & ~isnan(groupLabels);
+            x = x(~isnan(x));
+            y = y(~isnan(y));
 
-            yValid = y(validIdx);
-            gValid = groupLabels(validIdx);
-
-            if numel(unique(gValid)) < 3
-                continue;
-            end
-
-            if sum(gValid == 1) < 2 || sum(gValid == 2) < 2 || sum(gValid == 3) < 2
+            if numel(x) < 2 || numel(y) < 2
                 continue;
             end
 
             try
-                p = anova1(yValid, gValid, 'off');
+                [~, p, ~, stats] = ttest2(x, y, 'Vartype', 'unequal');
 
                 pMap(fi, ti) = p;
-
-                groupMeans = [
-                    mean(yValid(gValid == 1), 'omitnan');
-                    mean(yValid(gValid == 2), 'omitnan');
-                    mean(yValid(gValid == 3), 'omitnan')
-                ];
-
-                grandMean = mean(yValid, 'omitnan');
-
-                n1 = sum(gValid == 1);
-                n2 = sum(gValid == 2);
-                n3 = sum(gValid == 3);
-
-                ssBetween = n1 * (groupMeans(1) - grandMean)^2 + ...
-                            n2 * (groupMeans(2) - grandMean)^2 + ...
-                            n3 * (groupMeans(3) - grandMean)^2;
-
-                ssWithin = sum((yValid(gValid == 1) - groupMeans(1)).^2) + ...
-                           sum((yValid(gValid == 2) - groupMeans(2)).^2) + ...
-                           sum((yValid(gValid == 3) - groupMeans(3)).^2);
-
-                dfBetween = 3 - 1;
-                dfWithin = numel(yValid) - 3;
-
-                if dfWithin > 0 && ssWithin > 0
-                    fMap(fi, ti) = (ssBetween / dfBetween) / (ssWithin / dfWithin);
-                end
+                tMap(fi, ti) = stats.tstat;
 
             catch
                 pMap(fi, ti) = NaN;
-                fMap(fi, ti) = NaN;
+                tMap(fi, ti) = NaN;
             end
 
         end

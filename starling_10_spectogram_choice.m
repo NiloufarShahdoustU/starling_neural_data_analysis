@@ -11,7 +11,7 @@ clc;
 clear;
 close all;
 % add new patients here
-differentPatients = {'202421', '202509', '202511', '202512'};
+differentPatients = {'202421', '202509' '202511', '202512'};
 needsConcatenationPts = {'202514','202521'};
 %% all these times are in ms
 
@@ -22,7 +22,7 @@ choiceEnd = 1000;
 choiceFeedbackWindow = 1500;
 
 %% Main folder
-output_folder = fullfile('\\155.100.91.44\d\Data\Nill\starling\spectrograms\choice\');
+output_folder = fullfile('\\155.100.91.44\d\Data\Nill\starling\spectrograms_RSA\choice\');
 input_folder = fullfile('\\155.100.91.44\d\Data\Nill\starling\raw');
 d = dir(input_folder);
 

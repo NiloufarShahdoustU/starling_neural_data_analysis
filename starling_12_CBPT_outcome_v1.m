@@ -6,7 +6,7 @@ clc;
 clear;
 close all;
 
-output_folder = fullfile('\\155.100.91.44\d\Code\Nill\Starling_neural_data\starling_12_CBPT_outcome_ttest\');
+output_folder = fullfile('\\155.100.91.44\d\Code\Nill\Starling_neural_data\starling_12_CBPT_outcome_v1\');
 input_folder  = fullfile('\\155.100.91.44\d\Data\Nill\starling\spectrograms\outcome\');
 
 if ~exist(output_folder, 'dir')
