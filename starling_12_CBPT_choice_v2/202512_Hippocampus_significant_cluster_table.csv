@@ -1,0 +1,2 @@
+direction,clusterIndex,clusterMass,clusterThreshold,clusterSizeBins,clusterDurationMs,freqMin,freqMax,timeMin,timeMax,isSignificant
+positive_arrowup_greater_than_arrowdown,14,2831.22028945219,2367.41763105072,1385,428,5.59624258613371,18.8234413182801,806,1233,1

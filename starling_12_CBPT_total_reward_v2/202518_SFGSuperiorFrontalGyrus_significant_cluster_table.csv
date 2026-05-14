@@ -1,0 +1,3 @@
+direction,clusterIndex,clusterMass,clusterThreshold,clusterSizeBins,clusterDurationMs,freqMin,freqMax,timeMin,timeMax,isSignificant
+positive_win_greater_than_lose,1,12275.3593771175,2313.71279483977,3948,1001,5.59624258613371,23.9916171749344,1,1001,1
+negative_lose_greater_than_win,17,2294.60162514619,2185.71587270427,1036,246,23.9916171749344,167.087326768193,756,1001,1

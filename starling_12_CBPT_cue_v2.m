@@ -37,7 +37,7 @@ channelCombineMethod = 'mean';
 
 rng(1);
 
-for p = 1:numel(files)
+for p = 3:numel(files)
 
     file_name = files(p).name;
     file_path = fullfile(files(p).folder, file_name);
